@@ -25,6 +25,9 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <fstream>
+#include "/home/vyshu/valhalla/src/midgard/nlohmann_json.hpp"
+
 
 using namespace valhalla;
 using namespace valhalla::baldr;
@@ -519,6 +522,11 @@ void AddLandmarks(const EdgeInfo& edgeinfo,
                   const DirectedEdge* edge,
                   const std::vector<PointLL>& shape,
                   const uint32_t begin_index) {
+                    // FORCE-ADD A VARANASI LANDMARK FOR TESTING
+auto* test_lan = trip_edge->mutable_landmarks()->Add();
+
+test_lan->set_distance(15.0); // 15 meters along the edge
+test_lan->set_right(true);
   if (!controller(kEdgeLandmarks)) {
     return;
   }
@@ -2209,6 +2217,47 @@ void TripLegBuilder::Build(
     // Add landmarks in the directededge to the trip leg
     AddLandmarks(edgeinfo, trip_edge, controller, directededge, trip_shape, begin_index);
 
+// 1. Define the structure (no 'static const' anymore)
+    struct LandmarkPOI { 
+        std::string name; 
+        float lat; 
+        float lon; 
+    };
+    std::vector<LandmarkPOI> vns_pois;
+
+    // 2. Load the data from the external file
+    try {
+        std::ifstream f("/home/vyshu/valhalla/src/odin/landmarks.json");
+        if (f.is_open()) {
+            nlohmann::json data = nlohmann::json::parse(f);
+            for (auto& item : data["landmarks"]) {
+                vns_pois.push_back({
+                    item["name"].get<std::string>(),
+                    item["lat"].get<float>(),
+                    item["lon"].get<float>()
+                });
+            }
+            std::cout << "[SYSTEM] Successfully loaded " << vns_pois.size() << " landmarks from JSON!" << std::endl;
+        } else {
+            std::cerr << "[ERROR] Could not find landmarks.json at the specified path!" << std::endl;
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[ERROR] JSON Processing Error: " << e.what() << std::endl;
+    }
+
+    // 2. The Search Logic (This stays here to check every edge)
+    for (const auto& poi : vns_pois) {
+        float dLat = std::abs(trip_shape[begin_index].lat() - poi.lat);
+        float dLon = std::abs(trip_shape[begin_index].lng() - poi.lon);
+        
+        // 3. Increased the threshold to 0.005 (~500m) to ensure hits for testing
+        if (dLat < 0.005 && dLon < 0.005) {
+            auto* lan = trip_edge->mutable_landmarks()->Add();
+            lan->set_name(poi.name);
+            lan->set_distance(10.0);
+            lan->set_right(true);
+        }
+    }
     // Add the intersecting edges at the node. Skip it if the node was an inner node (excluding start
     // node and end node) of a shortcut that was recovered.
     if (startnode.is_valid() && !edge_itr->start_node_is_recovered) {

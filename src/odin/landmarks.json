@@ -1,0 +1,8 @@
+
+{
+  "landmarks": [
+    { "name": "Vishwanath Temple (VT)", "lat": 25.2677, "lon": 82.9913, "range": 0.001 },
+    { "name": "Kerala Cafe", "lat": 25.2764, "lon": 83.0104, "range": 0.0008 },
+    { "name": "Lanka Gate", "lat": 25.2850, "lon": 83.0010, "range": 0.001 }
+  ]
+}
